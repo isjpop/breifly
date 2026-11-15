@@ -1,8 +1,11 @@
 """Database extension objects, shared by models, services and migrations."""
 
+from typing import Any
+
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
+from sqlalchemy.orm import Session, scoped_session
 
 # Deterministic constraint names keep Alembic autogenerate diffs stable.
 NAMING_CONVENTION = {
@@ -15,3 +18,6 @@ NAMING_CONVENTION = {
 
 db = SQLAlchemy(metadata=MetaData(naming_convention=NAMING_CONVENTION))
 migrate = Migrate()
+
+# Services accept either a plain Session (tests, scripts) or Flask-SQLAlchemy's scoped session.
+DbSession = Session | scoped_session[Any]

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Example Tech Wire</title>
+    <link>https://example.com</link>
+    <description>Synthetic test feed</description>
+    <item>
+      <title>Chipmaker Unveils 2nm Processor for Data Centers</title>
+      <link>https://www.example.com/2026/11/14/chipmaker-2nm-processor/?utm_source=rss&amp;utm_medium=feed</link>
+      <guid isPermaLink="false">example-1001</guid>
+      <dc:creator>Jane Analyst</dc:creator>
+      <pubDate>Sat, 14 Nov 2026 15:30:00 +0000</pubDate>
+      <category>Semiconductors</category>
+      <category>AI</category>
+      <description><![CDATA[<p>A new processor promises <b>40% better</b> efficiency.</p>]]></description>
+      <content:encoded><![CDATA[
+        <figure><img src="https://cdn.example.com/chip.jpg" alt="chip"/></figure>
+        <p>The company said the processor, built on a 2-nanometer process, delivers 40% better
+        energy efficiency than its predecessor. Shipments are expected to begin in the second
+        quarter of next year, according to the company's chief executive.</p>
+        <script>alert('x')</script>
+        <p>Analysts cautioned that manufacturing yields remain uncertain and that pricing has
+        not been disclosed. Several cloud providers are reportedly testing early samples.</p>
+      ]]></content:encoded>
+    </item>
+    <item>
+      <title>Markets Close Higher as Bond Yields Ease</title>
+      <link>https://example.com/markets/close-higher</link>
+      <guid>https://example.com/markets/close-higher</guid>
+      <pubDate>Sat, 14 Nov 2026 21:05:00 GMT</pubDate>
+      <description>Stocks rose on Friday as Treasury yields fell for a third session.</description>
+      <media:thumbnail url="https://cdn.example.com/markets.jpg" width="500" height="500"/>
+    </item>
+    <item>
+      <title>Researchers &amp;amp; Engineers Report Fusion Milestone</title>
+      <link>https://example.com/science/fusion-milestone</link>
+      <pubDate>Fri, 13 Nov 2026 09:00:00 +0000</pubDate>
+    </item>
+  </channel>
+</rss>

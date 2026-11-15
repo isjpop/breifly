@@ -38,8 +38,36 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     depends_on:
       db:
+        condition: service_healthy
+
+  # Fetches all active sources every INGESTION_INTERVAL_MINUTES. The backend service applies
+  # migrations, so the worker waits for it to be healthy and skips them.
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: development
+      RUN_MIGRATIONS: "false"
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-briefly}:${POSTGRES_PASSWORD:-briefly}@db:5432/${POSTGRES_DB:-briefly}
+    command: ["flask", "--app", "app.wsgi", "ingest", "worker"]
+    volumes:
+      - ./backend:/app
+    depends_on:
+      backend:
         condition: service_healthy
 
   frontend:

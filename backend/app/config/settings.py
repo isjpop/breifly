@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1)
     database_echo: bool = False
 
+    # --- Ingestion ---
+    ingestion_interval_minutes: int = Field(default=15, ge=1)
+    ingestion_user_agent: str = "BrieflyBot/0.1 (+news aggregator; RSS reader)"
+    http_timeout_seconds: float = Field(default=15.0, gt=0)
+    http_max_retries: int = Field(default=3, ge=0, le=10)
+    http_backoff_base_seconds: float = Field(default=1.0, ge=0)
+    http_backoff_max_seconds: float = Field(default=30.0, ge=0)
+    feed_max_bytes: int = Field(default=5_000_000, ge=10_000)
+    feed_max_entries: int = Field(default=100, ge=1)
+    dedup_lookback_hours: int = Field(default=72, ge=1)
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:

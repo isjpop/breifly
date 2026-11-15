@@ -82,5 +82,6 @@ jobs:
         run: |
           docker compose up -d --build --wait db backend
           curl --fail --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8000/api/health
+          docker compose run --rm -e RUN_MIGRATIONS=false backend flask --app app.wsgi sources sync
       - if: always()
         run: docker compose logs backend && docker compose down -v

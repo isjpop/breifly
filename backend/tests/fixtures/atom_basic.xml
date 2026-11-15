@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Atom Source</title>
+  <id>urn:example:atom</id>
+  <updated>2026-11-14T16:44:44-05:00</updated>
+  <entry>
+    <title>Space Agency Confirms Lunar Lander Launch Window</title>
+    <link rel="alternate" type="text/html" href="https://atom.example.org/space/lunar-lander-window"/>
+    <id>https://atom.example.org/?p=42</id>
+    <author><name>Sam Reporter</name></author>
+    <published>2026-11-14T16:44:44-05:00</published>
+    <updated>2026-11-14T17:00:00-05:00</updated>
+    <summary type="html">&lt;p&gt;The launch window opens in March.&lt;/p&gt;</summary>
+    <content type="html">&lt;p&gt;The agency said the lander will launch in a three-week window opening in March, pending a final review of its propulsion system.&lt;/p&gt;</content>
+  </entry>
+</feed>

@@ -4,7 +4,8 @@
 finance, technology, business and science, then deduplicates, categorizes, ranks and summarizes it
 into a daily briefing you can read in minutes, with a link back to every original article.
 
-> **Status:** Milestone 1 (foundation) is complete. See [docs/roadmap.md](docs/roadmap.md) for
+> **Status:** Milestones 1–2 (foundation, data model, ingestion from six publishers) are
+> complete. See [docs/roadmap.md](docs/roadmap.md) for
 > what works today and what comes next.
 
 ## Stack
@@ -27,7 +28,8 @@ docker compose up --build
 - App: http://localhost:5173
 - API: http://localhost:8000/api/health
 
-Migrations run automatically when the backend container starts.
+Migrations run automatically when the backend container starts. The `worker` service begins
+ingesting news immediately and then every 15 minutes.
 
 ## Quick start (without Docker)
 
@@ -43,6 +45,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 export DATABASE_URL=postgresql+psycopg://briefly:briefly@localhost:5432/briefly
 flask --app app.wsgi db upgrade
+flask --app app.wsgi ingest run          # fetch news once (or: ingest worker)
 flask --app app.wsgi run --port 8000
 
 # Frontend (second terminal)

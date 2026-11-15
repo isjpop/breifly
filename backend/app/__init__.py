@@ -36,4 +36,8 @@ def create_app(settings: Settings | None = None) -> Flask:
     app.register_blueprint(health_bp)
     register_error_handlers(app)
 
+    from app.cli import register_cli
+
+    register_cli(app)
+
     return app
