@@ -1,4 +1,18 @@
-import type { ApiErrorBody, ApiSuccess, HealthStatus } from '../types/api'
+import type {
+  ApiErrorBody,
+  ApiSuccess,
+  ArticleCardData,
+  ArticleDetailData,
+  ArticleSort,
+  Briefing,
+  CategoryInfo,
+  CategorySlug,
+  HealthStatus,
+  PagedArticles,
+  Pagination,
+  SearchSort,
+  SourceInfo,
+} from '../types/api'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -65,7 +79,81 @@ export async function getJson<T>(
   throw new ApiError(response.status, 'http_error', `Request failed with status ${response.status}.`)
 }
 
+type QueryValue = string | number | undefined | null
+
+/** Build a query string, dropping empty values. */
+export function buildQuery(params: Record<string, QueryValue>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  }
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+function paged(response: ApiSuccess<ArticleCardData[]>): PagedArticles {
+  const pagination = response.meta?.pagination as Pagination | undefined
+  return {
+    articles: response.data,
+    pagination: pagination ?? { page: 1, per_page: response.data.length, total: response.data.length, total_pages: 1 },
+  }
+}
+
+export interface ArticleQuery {
+  category?: CategorySlug
+  source?: string
+  sort?: ArticleSort
+  page?: number
+  perPage?: number
+}
+
+export interface SearchQuery {
+  q: string
+  sort?: SearchSort
+  page?: number
+  perPage?: number
+}
+
 export const api = {
   health: (signal?: AbortSignal) =>
     getJson<HealthStatus>('/api/health', { signal, allowErrorStatus: true }),
+
+  briefing: async (signal?: AbortSignal) =>
+    (await getJson<Briefing>('/api/briefing/today', { signal })).data,
+
+  articles: async (query: ArticleQuery, signal?: AbortSignal) =>
+    paged(
+      await getJson<ArticleCardData[]>(
+        `/api/articles${buildQuery({
+          category: query.category,
+          source: query.source,
+          sort: query.sort,
+          page: query.page,
+          per_page: query.perPage,
+        })}`,
+        { signal },
+      ),
+    ),
+
+  search: async (query: SearchQuery, signal?: AbortSignal) =>
+    paged(
+      await getJson<ArticleCardData[]>(
+        `/api/articles/search${buildQuery({
+          q: query.q,
+          sort: query.sort,
+          page: query.page,
+          per_page: query.perPage,
+        })}`,
+        { signal },
+      ),
+    ),
+
+  article: async (id: string, signal?: AbortSignal) =>
+    (await getJson<ArticleDetailData>(`/api/articles/${encodeURIComponent(id)}`, { signal })).data,
+
+  categories: async (signal?: AbortSignal) =>
+    (await getJson<CategoryInfo[]>('/api/categories', { signal })).data,
+
+  sources: async (signal?: AbortSignal) =>
+    (await getJson<SourceInfo[]>('/api/sources', { signal })).data,
 }

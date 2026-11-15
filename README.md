@@ -4,8 +4,8 @@
 finance, technology, business and science, then deduplicates, categorizes, ranks and summarizes it
 into a daily briefing you can read in minutes, with a link back to every original article.
 
-> **Status:** Milestones 1–4 (foundation, ingestion from six publishers, categorization,
-> ranking, Gemini summarization, REST API) are complete. See [docs/roadmap.md](docs/roadmap.md) for
+> **Status:** Milestones 1–5 are complete: ingestion from six publishers, categorization and
+> ranking, Gemini summarization, REST API, and the web app. See [docs/roadmap.md](docs/roadmap.md) for
 > what works today and what comes next.
 
 ## Stack

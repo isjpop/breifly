@@ -216,6 +216,41 @@ The model can also decline (`insufficient_information`), and that is stored as
   its products. Briefly sends only publisher feed text, never user data. Use a paid key to
   opt out.
 
+## Frontend
+
+React 19 + TypeScript + Vite + Tailwind v4 (`frontend/src`).
+
+```
+pages/       BriefingPage, CategoryPage, ArticlePage, SearchPage, NotFoundPage
+components/  Layout (header, section nav, header search), ArticleCard (lead/standard/compact),
+             SummaryBlock + BasisTag, ImportanceMeter, ExternalLink, Pagination, SortToggle,
+             StatusMessage (loading/empty/error), CardSkeleton, SectionHeading, ScrollToTop
+services/    api.ts: typed client; unwraps {data, meta}, timeouts, typed ApiError
+hooks/       useAsync (abortable loads + reload), useSearchParam, useNow, useTheme
+lib/         format (relative/absolute time), categories (URL ↔ API slugs), urls, summary
+types/       api.ts: mirrors backend response models
+```
+
+- **URL is the state:** sort, publisher filter, page and query live in the query string, so
+  views are shareable and the back button works. Category URLs use hyphens
+  (`/category/breaking-news`), mapped to API slugs.
+- **Every data view has loading (skeletons), empty and error (with retry) states.**
+  Requests are aborted when the view changes, so stale responses never overwrite newer ones.
+- **Honest AI labelling:** cards show takeaways only for successful summaries. Excerpt-based
+  summaries carry an `Excerpt` tag. Articles without a summary show the publisher's description,
+  tagged `Teaser only` or `Summary pending`. The detail page shows the model, generation time
+  and a "may contain errors" note.
+- **External vs internal links:** publisher links always use `ExternalLink`: an ↗ marker, a new
+  tab, `rel="noopener noreferrer"`, screen-reader text, and the URL re-validated as http(s)
+  (unsafe URLs are not rendered). In-app navigation uses router links with no marker. Article
+  images use `referrerPolicy="no-referrer"` and hide themselves on load error.
+- **Design tokens:** colors are semantic CSS variables (`canvas`, `surface`, `ink`, `muted`,
+  `line`, `accent`) switched by a `.dark` class. The theme is applied before first paint from
+  the saved choice or the OS preference.
+- **Accessibility:** a skip link, landmark regions labelled by their headings,
+  `aria-current` navigation, radio-group sort controls, labelled inputs, visible focus rings,
+  and an importance meter exposed as "Importance 7.6 out of 10".
+
 ## News sources
 
 Verified on 2026-11-14 by fetching each feed. Briefly uses only publisher-provided feeds,

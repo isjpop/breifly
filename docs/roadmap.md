@@ -51,8 +51,16 @@
 - [x] OpenAPI 3.1 at `/api/openapi.json`, generated from response models; a test requires every
       route to be documented
 
-## Milestone 5: Frontend
-- [ ] Daily briefing, category feeds, article detail, search, responsive navigation
+## Milestone 5: Frontend ✅
+- [x] Daily Briefing: date, last-updated time, lead story + top stories, per-category
+      sections with "View all"
+- [x] Category feeds: importance/latest sort, publisher filter, pagination (URL-driven)
+- [x] Article detail: original headline and attribution, prominent link to the original, AI
+      takeaways, why it matters, provenance, searchable entities, related coverage
+- [x] Search: header and page search, web-search syntax hints, sort, pagination
+- [x] Light/dark themes, responsive layout (verified at 1280 px and 390 px in both themes
+      with real data), skeleton/empty/error states, accessibility basics
+- [x] 51 frontend tests (95% coverage, thresholds enforced in CI)
 
 ## Milestone 6: End-to-end and hardening
 - [ ] Full pipeline verification, coverage review, Docker/CI verification, docs pass

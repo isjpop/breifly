@@ -100,3 +100,17 @@ convention (`app/database/__init__.py`), which keeps autogenerate diffs stable.
 - Every view handles loading, empty and error states with `StatusMessage`.
 - UI colors come from semantic tokens (`bg-canvas`, `text-muted`, `border-line`, `text-accent`)
   defined in `frontend/src/styles/index.css`, never raw palette classes.
+
+## Frontend
+
+```bash
+cd frontend
+npm run dev            # http://localhost:5173, proxies /api to VITE_API_PROXY_TARGET
+npm test               # Vitest + Testing Library
+npm run test:coverage  # with thresholds (lines 80%, branches 75%), as CI runs it
+npm run lint && npm run typecheck && npm run build
+```
+
+Tests mock `fetch` by URL path (`src/test/mockApi.ts`) and use shared fixtures
+(`src/test/fixtures.ts`), so each test can assert exactly which API requests a page made.
+Keep `src/types/api.ts` in sync when backend response models change.
