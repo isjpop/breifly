@@ -37,9 +37,19 @@
       that review found (v2: "why it matters" must not use outside knowledge; v3: excerpts
       with at least one concrete fact are summarized, not declined).
 
-## Milestone 4: REST API
-- [ ] Articles (filters, sort, pagination), top, detail, search, categories, sources, briefing
-- [ ] Protected and rate-limited `POST /api/articles/{id}/summarize`
+## Milestone 4: REST API ✅
+- [x] `GET /api/articles` (category, source, date range, importance/recency sort, pagination),
+      `/top` (one per story), `/search` (full-text incl. AI entities and publisher), `/{id}`
+      (full summary + related coverage)
+- [x] `GET /api/categories`, `/api/sources`, `/api/briefing/today` (rolling window with
+      fallback, top stories + per-category sections, last-updated time)
+- [x] `POST /api/articles/{id}/summarize`: bearer auth (fails closed), global and per-article
+      limits stored in the DB, per-article lock, single bounded provider call, previous summary
+      kept on failure
+- [x] Pydantic request validation, consistent envelope and status codes, safe-link output,
+      UTC sessions, GIN search indexes (query plan tested)
+- [x] OpenAPI 3.1 at `/api/openapi.json`, generated from response models; a test requires every
+      route to be documented
 
 ## Milestone 5: Frontend
 - [ ] Daily briefing, category feeds, article detail, search, responsive navigation
@@ -48,6 +58,10 @@
 - [ ] Full pipeline verification, coverage review, Docker/CI verification, docs pass
 
 ## Known limitations / backlog
+- Rule-based categories lean toward Technology (56 of 97 live articles) until AI summaries
+  replace them. The worker gets through the backlog at up to 40 summaries per tick.
+- The API has no read-side rate limiting or caching yet. Add both at the reverse proxy if it
+  is exposed publicly.
 - Rule-based categories are a fallback and misfire on some headlines. They only remain where no
   AI summary exists.
 - Three of six sources provide only excerpts, so their summaries have 1–3 points and are

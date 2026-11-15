@@ -65,9 +65,11 @@ class ProcessingService:
         llm: LLMClient | None,
         *,
         clock: Callable[[], datetime] = utcnow,
+        ai_off_reason: str = "GEMINI_API_KEY is not set",
     ) -> None:
         self._session = session
         self._settings = settings
+        self._ai_off_reason = ai_off_reason
         self._clock = clock
         self._weights = RankingWeights.from_settings(settings)
         self.summarizer = Summarizer(session, llm, settings, clock=clock)
@@ -160,7 +162,7 @@ class ProcessingService:
 
     def _summarize_pending(self, report: ProcessingReport, budget: int) -> None:
         if not self.summarizer.ai_available:
-            report.notes.append("AI summarization disabled: GEMINI_API_KEY is not set")
+            report.notes.append(f"AI summarization off: {self._ai_off_reason}")
         consecutive_failures = 0
         stopped = False
 
@@ -227,9 +229,10 @@ class ProcessingService:
 
     # ------------------------------------------------------------ regenerate
 
-    def regenerate(self, article_id: uuid.UUID) -> Article:
-        """Force a fresh summary regardless of previous attempts. Raises ``ArticleNotFound``,
-        ``LLMRateLimitError`` or ``LLMConfigurationError``."""
+    def regenerate(self, article_id: uuid.UUID) -> GenerationStatus:
+        """Force a fresh summary regardless of previous attempts and return the attempt's
+        outcome. A failed attempt keeps any previously valid summary. Raises
+        ``ArticleNotFound``, ``LLMRateLimitError`` or ``LLMConfigurationError``."""
         article = self._session.scalars(
             select(Article)
             .options(joinedload(Article.source), joinedload(Article.summary))
@@ -244,11 +247,11 @@ class ProcessingService:
             )  # fmt: skip
             article.category_source = CategorySource.RULES
         try:
-            self.summarizer.summarize(article)
+            attempt = self.summarizer.summarize(article, operation="regenerate")
         except (LLMRateLimitError, LLMConfigurationError):
             self._session.commit()
             raise
         self._rank(article, article.source.credibility_weight, self._clock())
         self._update_processing_status(article)
         self._session.commit()
-        return article
+        return attempt.status

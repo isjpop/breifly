@@ -131,7 +131,11 @@ def run_processing_once(
         if not acquired:
             logger.info("Another processing run is in progress; skipping")
             return None
-        if llm is not None or not use_ai:
+        if not use_ai:
+            return ProcessingService(
+                db.session, settings, None, ai_off_reason="disabled for this run (--no-ai)"
+            ).run(max_summaries=max_summaries)
+        if llm is not None:
             return ProcessingService(db.session, settings, llm).run(max_summaries=max_summaries)
         with llm_client(settings) as client:
             return ProcessingService(db.session, settings, client).run(max_summaries=max_summaries)

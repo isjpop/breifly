@@ -98,7 +98,9 @@ class GeminiClient:
         self._sleep = sleep
 
     @classmethod
-    def from_settings(cls, http_client: httpx.Client, settings: Settings) -> "GeminiClient":
+    def from_settings(
+        cls, http_client: httpx.Client, settings: Settings, *, max_retries: int | None = None
+    ) -> "GeminiClient":
         key = settings.gemini_api_key.get_secret_value() if settings.gemini_api_key else ""
         return cls(
             http_client,
@@ -106,7 +108,7 @@ class GeminiClient:
             model=settings.gemini_model,
             base_url=settings.gemini_api_base_url,
             api_revision=settings.gemini_api_revision,
-            max_retries=settings.llm_max_retries,
+            max_retries=settings.llm_max_retries if max_retries is None else max_retries,
             throttle=Throttle(settings.llm_requests_per_minute),
         )
 
@@ -196,5 +198,6 @@ def _retry_after(response: httpx.Response) -> float | None:
         return None
 
 
-def build_llm_http_client(settings: Settings) -> httpx.Client:
-    return httpx.Client(timeout=httpx.Timeout(settings.llm_timeout_seconds, connect=10.0))
+def build_llm_http_client(settings: Settings, *, timeout: float | None = None) -> httpx.Client:
+    seconds = settings.llm_timeout_seconds if timeout is None else timeout
+    return httpx.Client(timeout=httpx.Timeout(seconds, connect=10.0))

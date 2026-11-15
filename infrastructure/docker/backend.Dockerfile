@@ -22,4 +22,5 @@ USER briefly
 EXPOSE 8000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--access-logfile", "-", "app.wsgi:app"]
+# --timeout 60: summary regeneration makes one bounded (25s) provider call inside a request.
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "60", "--access-logfile", "-", "app.wsgi:app"]

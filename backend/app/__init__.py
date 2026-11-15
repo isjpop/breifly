@@ -21,7 +21,13 @@ def create_app(settings: Settings | None = None) -> Flask:
     app.config.update(
         SQLALCHEMY_DATABASE_URI=settings.database_url,
         SQLALCHEMY_ECHO=settings.database_echo,
-        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_size": settings.database_pool_size},
+        SQLALCHEMY_ENGINE_OPTIONS={
+            "pool_pre_ping": True,
+            "pool_size": settings.database_pool_size,
+            # Sessions run in UTC so timestamps (and date filters) never depend on the
+            # database server's local time zone.
+            "connect_args": {"options": "-c timezone=UTC"},
+        },
         JSON_SORT_KEYS=False,
         BRIEFLY_SETTINGS=settings,
     )
@@ -31,9 +37,13 @@ def create_app(settings: Settings | None = None) -> Flask:
 
     # Import models so they register with SQLAlchemy metadata (required by migrations).
     from app import models  # noqa: F401
+    from app.routes.articles import bp as articles_bp
+    from app.routes.catalog import bp as catalog_bp
+    from app.routes.docs import bp as docs_bp
     from app.routes.health import bp as health_bp
 
-    app.register_blueprint(health_bp)
+    for blueprint in (health_bp, articles_bp, catalog_bp, docs_bp):
+        app.register_blueprint(blueprint)
     register_error_handlers(app)
 
     from app.cli import register_cli

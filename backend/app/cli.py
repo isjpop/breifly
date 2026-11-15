@@ -18,7 +18,7 @@ from app.ingestion.scheduler import (
     run_processing_once,
 )
 from app.ingestion.sync import sync_sources
-from app.models import AIUsageEvent, RunTrigger, Source
+from app.models import AIUsageEvent, GenerationStatus, RunTrigger, Source, Summary
 from app.models.base import utcnow
 from app.services.llm import LLMConfigurationError, LLMRateLimitError
 from app.services.processing import ArticleNotFound, ProcessingService
@@ -125,14 +125,19 @@ def summaries_regenerate(article_id: uuid.UUID) -> None:
         if client is None:
             raise click.ClickException("GEMINI_API_KEY is not set")
         try:
-            article = ProcessingService(db.session, settings, client).regenerate(article_id)
+            status = ProcessingService(db.session, settings, client).regenerate(article_id)
         except ArticleNotFound as exc:
             raise click.ClickException(f"article {article_id} not found") from exc
         except (LLMRateLimitError, LLMConfigurationError) as exc:
             raise click.ClickException(f"provider error: {exc}") from exc
-    summary = article.summary
+    summary = db.session.scalar(select(Summary).where(Summary.article_id == article_id))
     assert summary is not None
-    click.echo(f"{summary.generation_status.value}: {summary.headline or summary.generation_error}")
+    if status is GenerationStatus.FAILED:
+        click.echo(f"failed: {summary.generation_error}", err=True)
+        if summary.generation_status is GenerationStatus.SUCCEEDED:
+            click.echo("(previous summary kept)", err=True)
+        return
+    click.echo(f"{summary.generation_status.value}: {summary.headline or summary.limitations}")
     for bullet in summary.bullet_points:
         click.echo(f"  - {bullet}")
 

@@ -29,6 +29,10 @@
 | `LLM_MAX_OUTPUT_TOKENS` / `LLM_MAX_INPUT_CHARS` | worker | `1024` / `12000`                      | Article text beyond this is truncated |
 | `SUMMARY_MAX_ATTEMPTS`  | worker   | `3`                                                            | Then the summary stays `failed` |
 | `LLM_INPUT_COST_PER_MILLION` / `LLM_OUTPUT_COST_PER_MILLION` | worker | `0.30` / `2.50`   | For estimates only |
+| `ADMIN_API_TOKEN`       | backend  | empty                                                          | Bearer token for `POST …/summarize`; empty disables it |
+| `REGENERATE_MAX_PER_MINUTE` / `REGENERATE_COOLDOWN_SECONDS` | backend | `5` / `60`        | Global and per-article limits |
+| `API_LLM_TIMEOUT_SECONDS` | backend | `25`                                                          | Single provider attempt inside a request |
+| `BRIEFING_WINDOW_HOURS` / `BRIEFING_FALLBACK_WINDOW_HOURS` | backend | `24` / `72`         | |
 | `RANKING_WEIGHT_*`      | worker   | `0.35/0.30/0.20/0.15`                                          | impact/significance/credibility/recency; must sum to 1 |
 | `RANKING_RECENCY_HALF_LIFE_HOURS` | worker | `12`                                                   | |
 | `RANKING_REFRESH_WINDOW_HOURS` | worker | `72`                                                      | Articles re-ranked each tick |

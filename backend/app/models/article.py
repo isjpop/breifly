@@ -2,7 +2,18 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, String, Text
+from sqlalchemy import (
+    CheckConstraint,
+    ColumnElement,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+    literal_column,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -85,3 +96,38 @@ class Article(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):  # type: ignore[na
 
     def __repr__(self) -> str:
         return f"<Article {self.id} {self.title[:40]!r}>"
+
+
+# --- Query expressions shared by indexes and queries ------------------------------------------
+# PostgreSQL only uses an expression index when the query repeats the same expression, so both
+# are built from these functions.
+
+SEARCH_CONFIG: ColumnElement[Any] = literal_column("'english'::regconfig")
+
+
+def effective_time() -> ColumnElement[datetime]:
+    """Publication time, falling back to first-seen time when the feed gave no usable date."""
+    return func.coalesce(Article.published_at, Article.created_at)
+
+
+def article_search_vector() -> ColumnElement[Any]:
+    document = (
+        func.coalesce(Article.title, "")
+        + " "
+        + func.coalesce(Article.description, "")
+        + " "
+        + func.coalesce(Article.content, "")
+    )
+    return func.to_tsvector(SEARCH_CONFIG, document)
+
+
+# The text-search config must stay an inline literal ('english'::regconfig): a bound parameter
+# would not match the index expression. Because that literal is a table-less column clause,
+# SQLAlchemy cannot infer the table, so it is bound explicitly with ``_table``.
+Index("ix_articles_effective_time", effective_time())
+Index(
+    "ix_articles_search",
+    article_search_vector(),
+    postgresql_using="gin",
+    _table=Article.__table__,
+)

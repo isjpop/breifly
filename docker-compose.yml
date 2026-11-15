@@ -33,7 +33,7 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-briefly}:${POSTGRES_PASSWORD:-briefly}@db:5432/${POSTGRES_DB:-briefly}
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-briefly}:${POSTGRES_PASSWORD:-briefly}@db:5432/briefly_test
-    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--reload", "--access-logfile", "-", "app.wsgi:app"]
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--reload", "--timeout", "60", "--access-logfile", "-", "app.wsgi:app"]
     ports:
       - "8000:8000"
     volumes:

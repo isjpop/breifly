@@ -4,8 +4,8 @@
 finance, technology, business and science, then deduplicates, categorizes, ranks and summarizes it
 into a daily briefing you can read in minutes, with a link back to every original article.
 
-> **Status:** Milestones 1–3 (foundation, ingestion from six publishers, categorization,
-> ranking and Gemini summarization) are complete. See [docs/roadmap.md](docs/roadmap.md) for
+> **Status:** Milestones 1–4 (foundation, ingestion from six publishers, categorization,
+> ranking, Gemini summarization, REST API) are complete. See [docs/roadmap.md](docs/roadmap.md) for
 > what works today and what comes next.
 
 ## Stack
@@ -26,7 +26,8 @@ docker compose up --build
 ```
 
 - App: http://localhost:5173
-- API: http://localhost:8000/api/health
+- API: http://localhost:8000/api/briefing/today (docs: [docs/api.md](docs/api.md),
+  OpenAPI: http://localhost:8000/api/openapi.json)
 
 Migrations run automatically when the backend container starts. The `worker` service begins
 ingesting news immediately and then every 15 minutes.

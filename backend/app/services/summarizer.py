@@ -82,6 +82,7 @@ class Summarizer:
         self._llm = llm
         self._settings = settings
         self._clock = clock
+        self._operation = "summarize"
 
     @property
     def ai_available(self) -> bool:
@@ -104,7 +105,7 @@ class Summarizer:
         summary.bullet_points = []
         summary.source_coverage = None
 
-    def summarize(self, article: Article) -> SummaryAttempt:
+    def summarize(self, article: Article, *, operation: str = "summarize") -> SummaryAttempt:
         """Summarize one article. Raises ``LLMRateLimitError`` / ``LLMConfigurationError`` so
         the caller can stop the run; other provider failures are recorded on the summary."""
         coverage = source_coverage(article)
@@ -125,7 +126,9 @@ class Summarizer:
             max_chars=self._settings.llm_max_input_chars,
         )
 
+        self._operation = operation
         summary = self._summary_for(article)
+        had_good_summary = summary.generation_status is GenerationStatus.SUCCEEDED
         error: str | None = None
         calls = 0
         while calls < MAX_CALLS_PER_ATTEMPT:
@@ -163,9 +166,12 @@ class Summarizer:
             self._finish_attempt(summary)
             return SummaryAttempt(summary.generation_status, calls)
 
-        summary.generation_status = GenerationStatus.FAILED
         summary.generation_error = (error or "unknown error")[:MAX_ERROR_LENGTH]
         self._finish_attempt(summary)
+        if had_good_summary:
+            # A failed regeneration must not discard a valid existing summary.
+            return SummaryAttempt(GenerationStatus.FAILED, calls)
+        summary.generation_status = GenerationStatus.FAILED
         return SummaryAttempt(GenerationStatus.FAILED, calls)
 
     def _finish_attempt(self, summary: Summary) -> None:
@@ -225,7 +231,7 @@ class Summarizer:
         self._session.add(
             AIUsageEvent(
                 article_id=article.id,
-                operation="summarize",
+                operation=self._operation,
                 provider=llm.provider if llm else "none",
                 model_name=result.model if result else (llm.model if llm else "none"),
                 status=status,

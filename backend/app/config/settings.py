@@ -57,6 +57,16 @@ class Settings(BaseSettings):
     llm_input_cost_per_million: float = Field(default=0.30, ge=0)
     llm_output_cost_per_million: float = Field(default=2.50, ge=0)
 
+    # --- API ---
+    # Bearer token for admin endpoints (summary regeneration). Unset → those endpoints are off.
+    admin_api_token: SecretStr | None = None
+    regenerate_max_per_minute: int = Field(default=5, ge=1)
+    regenerate_cooldown_seconds: int = Field(default=60, ge=0)
+    # Synchronous regeneration happens inside an HTTP request: one attempt, bounded time.
+    api_llm_timeout_seconds: float = Field(default=25.0, gt=0)
+    briefing_window_hours: int = Field(default=24, ge=1)
+    briefing_fallback_window_hours: int = Field(default=72, ge=1)
+
     # --- Importance ranking (weights must sum to 1) ---
     ranking_weight_impact: float = Field(default=0.35, ge=0, le=1)
     ranking_weight_significance: float = Field(default=0.30, ge=0, le=1)

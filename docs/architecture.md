@@ -62,10 +62,31 @@ SQLite. That keeps tests faithful to production behaviour.
 psycopg v3 has wheels for current Python versions and is the maintained driver. Plain
 `postgres://` URLs (as most hosting providers issue them) are rewritten to use it.
 
-## API response format
+## REST API
 
-Success: `{"data": ..., "meta": {...}}`. Error: `{"error": {"code", "message", "details?"}}`.
-Internal exception details are logged server-side and never returned to clients.
+See [api.md](api.md) for endpoints. Design notes:
+
+- **Layers:** routes do HTTP concerns only. `app/schemas/api.py` holds the request and response
+  models, and `app/services/articles.py` holds the queries. Every list endpoint uses a fixed
+  number of queries (the page, a count, and one batched related-coverage count) regardless of
+  page size.
+- **Validation:** query parameters are parsed by Pydantic models, and errors become a 400 with
+  per-field details. Path UUIDs are validated explicitly (400, not 404). Links are re-checked on
+  output, so a stored unsafe URL is never emitted.
+- **Search:** PostgreSQL full-text search (`websearch_to_tsquery`, English stemming) over two
+  GIN expression indexes: article text, and AI summary text plus entities. The query
+  expressions are built by the same functions that define the indexes
+  (`article_search_vector()` / `summary_search_vector()`), and a test checks the query plan
+  actually uses the index.
+- **Story-level de-duplication:** top stories and the briefing show one article per story
+  cluster. The others are counted in `related_count` and listed on the detail page.
+- **Admin endpoint:** fail-closed bearer auth, rate limits stored in the database (so they work
+  with several gunicorn workers), a per-article advisory lock, and one bounded provider call.
+- **Time:** database sessions are pinned to UTC, so date filters and timestamps never depend on
+  the server's time zone.
+- **Envelope:** success is `{"data": ..., "meta": {...}}` and an error is
+  `{"error": {"code", "message", "details?"}}`. Internal exception details are logged
+  server-side and never returned to clients.
 
 ## Data model
 
@@ -74,9 +95,14 @@ Internal exception details are logged server-side and never returned to clients.
 | `sources`        | One row per publisher integration: feed URL, default category, credibility weight (0–1), `is_active`, fetch tracking (`last_fetched_at`, `last_successful_fetch_at`, `last_fetch_status`, `last_fetch_error`, `consecutive_failures`) and HTTP validators (`http_etag`, `http_last_modified`). |
 | `articles`       | Normalized articles. `normalized_url` is unique. Also holds `guid`, `content_hash`, `content_availability`, `published_at` (null when the feed's date is missing/untrustworthy), `category` + `category_source`, `impact_score`/`significance_score` (from the model), `importance_score` (computed), `processing_status`, `story_cluster_id`, and `extra` JSONB (e.g. `date_issue`). |
 | `summaries`      | One current AI summary per article (`article_id` unique): bullets, why it matters, entities, `source_coverage`, `limitations`, model, prompt version, attempts. Regeneration updates it in place. |
-| `ai_usage_events`| One row per LLM call: tokens, latency, status, estimated cost. |
+| `ai_usage_events`| One row per LLM call: operation (`summarize`/`regenerate`), tokens, latency, status, estimated cost. Also backs the API's regeneration rate limit. |
 | `story_clusters` | Groups separate articles from different publishers about the same event. |
 | `ingestion_runs` | Metrics for every run: trigger, status, timings, counts, per-source breakdown JSONB. |
+
+Indexes beyond the obvious foreign keys include `coalesce(published_at, created_at)` (the
+"effective time" used for date filters and recency sorting) and GIN full-text indexes on
+article and summary text. The GIN indexes are hand-written in a migration because Alembic
+cannot render them.
 
 All primary keys are UUIDs. Enums are stored as VARCHAR + CHECK constraints rather than native
 PostgreSQL enums, so adding a value is a simple migration. A test asserts that the migrations

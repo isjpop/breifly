@@ -204,14 +204,34 @@ def test_regenerate_replaces_the_existing_summary(app: Flask, settings: Settings
     assert article.summary is not None
     first_id = article.summary.id
 
-    regenerated = processor(
-        settings, FakeLLM([valid_output(headline="Second version")])
-    ).regenerate(article.id)
+    status = processor(settings, FakeLLM([valid_output(headline="Second version")])).regenerate(
+        article.id
+    )
 
-    assert regenerated.summary is not None
-    assert regenerated.summary.id == first_id  # updated in place, one summary per article
-    assert regenerated.summary.headline == "Second version"
-    assert regenerated.summary.attempts == 2
+    db.session.refresh(article)
+    assert status is GenerationStatus.SUCCEEDED
+    assert article.summary is not None
+    assert article.summary.id == first_id  # updated in place, one summary per article
+    assert article.summary.headline == "Second version"
+    assert article.summary.attempts == 2
+
+
+def test_failed_regeneration_keeps_the_previous_good_summary(
+    app: Flask, settings: Settings
+) -> None:
+    (article,) = add_articles(1)
+    processor(settings, FakeLLM(default=valid_output(headline="Good version"))).regenerate(
+        article.id
+    )
+
+    status = processor(settings, FakeLLM([LLMUnavailableError("HTTP 503")])).regenerate(article.id)
+
+    db.session.refresh(article)
+    assert status is GenerationStatus.FAILED
+    assert article.summary is not None
+    assert article.summary.generation_status is GenerationStatus.SUCCEEDED
+    assert article.summary.headline == "Good version"
+    assert article.summary.generation_error == "unavailable: HTTP 503"
 
 
 def test_regenerate_unknown_article(app: Flask, settings: Settings) -> None:
@@ -223,3 +243,13 @@ def test_processing_runs_do_not_overlap(app: Flask, settings: Settings) -> None:
     with advisory_lock(db.engine, PROCESSING_LOCK_KEY):
         assert run_processing_once(settings, use_ai=False) is None
     assert run_processing_once(settings, use_ai=False) is not None
+
+
+def test_ai_off_note_states_the_actual_reason(app: Flask, settings: Settings) -> None:
+    add_articles(1)
+    no_key = ProcessingService(db.session, settings, None).run()
+    assert no_key.notes == ["AI summarization off: GEMINI_API_KEY is not set"]
+
+    report = run_processing_once(settings, use_ai=False)
+    assert report is not None
+    assert report.notes == ["AI summarization off: disabled for this run (--no-ai)"]

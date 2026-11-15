@@ -1,8 +1,19 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    ColumnElement,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    cast,
+    func,
+    literal_column,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,3 +59,27 @@ class Summary(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):  # type: ignore[na
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     article: Mapped["Article"] = relationship(back_populates="summary")
+
+
+def summary_search_vector() -> ColumnElement[Any]:
+    """AI headline, takeaways and key entities, so searches match companies and people the
+    model identified even when the feed text is short."""
+    document = (
+        func.coalesce(Summary.headline, "")
+        + " "
+        + func.coalesce(Summary.why_it_matters, "")
+        + " "
+        + cast(Summary.bullet_points, Text)
+        + " "
+        + cast(Summary.key_entities, Text)
+    )
+    return func.to_tsvector(literal_column("'english'::regconfig"), document)
+
+
+# See app/models/article.py for why the table is bound explicitly.
+Index(
+    "ix_summaries_search",
+    summary_search_vector(),
+    postgresql_using="gin",
+    _table=Summary.__table__,
+)
