@@ -4,8 +4,8 @@
 finance, technology, business and science, then deduplicates, categorizes, ranks and summarizes it
 into a daily briefing you can read in minutes, with a link back to every original article.
 
-> **Status:** Milestones 1–2 (foundation, data model, ingestion from six publishers) are
-> complete. See [docs/roadmap.md](docs/roadmap.md) for
+> **Status:** Milestones 1–3 (foundation, ingestion from six publishers, categorization,
+> ranking and Gemini summarization) are complete. See [docs/roadmap.md](docs/roadmap.md) for
 > what works today and what comes next.
 
 ## Stack
@@ -15,13 +15,13 @@ into a daily briefing you can read in minutes, with a link back to every origina
 | Frontend  | React 19, TypeScript, Vite, Tailwind CSS v4, Lucide, React Router |
 | Backend   | Python, Flask, SQLAlchemy 2, Flask-Migrate (Alembic), Pydantic    |
 | Database  | PostgreSQL (JSONB, UUID primary keys)                             |
-| AI        | OpenAI API, structured JSON output (Milestone 3)                  |
+| AI        | Google Gemini (Interactions API), validated structured JSON output |
 | Infra     | Docker, Docker Compose, GitHub Actions                            |
 
 ## Quick start (Docker)
 
 ```bash
-cp .env.example .env
+cp .env.example .env     # add GEMINI_API_KEY to enable AI summaries
 docker compose up --build
 ```
 
@@ -45,7 +45,8 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 export DATABASE_URL=postgresql+psycopg://briefly:briefly@localhost:5432/briefly
 flask --app app.wsgi db upgrade
-flask --app app.wsgi ingest run          # fetch news once (or: ingest worker)
+flask --app app.wsgi ingest run          # fetch news once
+flask --app app.wsgi process run         # categorize, rank, summarize (or: ingest worker)
 flask --app app.wsgi run --port 8000
 
 # Frontend (second terminal)

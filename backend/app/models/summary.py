@@ -2,13 +2,13 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import db
 from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin, string_enum
-from app.models.enums import GenerationStatus
+from app.models.enums import GenerationStatus, SourceCoverage
 
 if TYPE_CHECKING:
     from app.models.article import Article
@@ -37,5 +37,14 @@ class Summary(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):  # type: ignore[na
     )
     generation_error: Mapped[str | None] = mapped_column(Text)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    source_coverage: Mapped[SourceCoverage | None] = mapped_column(
+        string_enum(SourceCoverage, "source_coverage")
+    )
+    # Model-reported caveat about the source material (e.g. "based on a short excerpt").
+    limitations: Mapped[str | None] = mapped_column(Text)
+    prompt_version: Mapped[str | None] = mapped_column(String(32))
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     article: Mapped["Article"] = relationship(back_populates="summary")

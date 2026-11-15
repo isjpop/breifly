@@ -23,7 +23,10 @@ TEST_DATABASE_URL = os.environ.get(
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(app_env="test", database_url=TEST_DATABASE_URL, http_max_retries=1)
+    # gemini_api_key=None: a real key in .env must never make tests call the provider.
+    return Settings(
+        app_env="test", database_url=TEST_DATABASE_URL, http_max_retries=1, gemini_api_key=None
+    )
 
 
 @pytest.fixture

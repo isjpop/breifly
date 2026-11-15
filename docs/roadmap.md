@@ -23,11 +23,19 @@
 - [x] Worker (fixed 15-min rate, advisory-lock overlap prevention, graceful SIGTERM), run
       metrics, CLI, compose `worker` service
 
-## Milestone 3: Processing and AI
-- [ ] Processing stage in the worker: pick up `pending` articles after ingestion
-- [ ] Categorization, configurable importance ranking
-- [ ] OpenAI summarizer: structured output, Pydantic validation, prompt-injection isolation,
-      limited-content handling, retries/rate limits, usage and cost tracking
+## Milestone 3: Processing and AI ✅
+- [x] Processing stage after ingestion in the worker, plus `flask process run`, with its own
+      overlap lock
+- [x] Rule-based categorizer, replaced by a validated AI category
+- [x] Configurable weighted importance ranking, recomputed as articles age
+- [x] Gemini summarizer (switched from OpenAI to use the free tier): structured output,
+      Pydantic validation, one retry on invalid output, prompt-injection isolation,
+      thin-content policy, retries/backoff, throttle, per-run budget, circuit breakers,
+      attempt limits, usage and cost ledger, regeneration (CLI; API endpoint in Milestone 4)
+- [x] Verified live against Gemini (`gemini-3.5-flash-lite`, 2026-11-15) on full-text and
+      excerpt articles; bullets checked against source text. Prompt revised twice from what
+      that review found (v2: "why it matters" must not use outside knowledge; v3: excerpts
+      with at least one concrete fact are summarized, not declined).
 
 ## Milestone 4: REST API
 - [ ] Articles (filters, sort, pagination), top, detail, search, categories, sources, briefing
@@ -40,6 +48,10 @@
 - [ ] Full pipeline verification, coverage review, Docker/CI verification, docs pass
 
 ## Known limitations / backlog
+- Rule-based categories are a fallback and misfire on some headlines. They only remain where no
+  AI summary exists.
+- Three of six sources provide only excerpts, so their summaries have 1–3 points and are
+  labelled as excerpt-based.
 - Headline-overlap clustering is conservative and misses differently-worded coverage. Upgrade
   to embedding- or entity-based clustering (future enhancement 1).
 - Reuters and AP require commercial licences before they can be integrated.

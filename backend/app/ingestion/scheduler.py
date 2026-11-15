@@ -21,11 +21,16 @@ from app.ingestion.http import FeedFetcher, build_http_client
 from app.ingestion.pipeline import IngestionService
 from app.ingestion.sync import sync_sources
 from app.models import IngestionRun, RunTrigger
+from app.services.llm import LLMClient
+from app.services.llm.gemini import GeminiClient, build_llm_http_client
+from app.services.processing import ProcessingReport, ProcessingService
 
 logger = logging.getLogger(__name__)
 
-# Arbitrary, stable 64-bit key identifying the ingestion job ("brief" in ASCII).
+# Arbitrary, stable 64-bit keys identifying each job ("brief" / "summ" in ASCII). Separate locks
+# let ingestion and processing run independently while each stays single-instance.
 INGESTION_LOCK_KEY = 0x6272696566
+PROCESSING_LOCK_KEY = 0x73756D6D
 
 
 @contextmanager
@@ -101,6 +106,44 @@ class IngestionWorker:
         logger.info("Ingestion worker stopped")
 
 
-def sync_and_run(settings: Settings, trigger: RunTrigger) -> IngestionRun | None:
+@contextmanager
+def llm_client(settings: Settings) -> Iterator[LLMClient | None]:
+    """Yield a configured LLM client, or None when no API key is set."""
+    if not settings.ai_enabled:
+        yield None
+        return
+    with build_llm_http_client(settings) as http:
+        yield GeminiClient.from_settings(http, settings)
+
+
+def run_processing_once(
+    settings: Settings,
+    *,
+    llm: LLMClient | None = None,
+    use_ai: bool = True,
+    max_summaries: int | None = None,
+) -> ProcessingReport | None:
+    """Categorize, rank and summarize pending articles. None if another run holds the lock.
+
+    Must be called inside a Flask application context.
+    """
+    with advisory_lock(db.engine, PROCESSING_LOCK_KEY) as acquired:
+        if not acquired:
+            logger.info("Another processing run is in progress; skipping")
+            return None
+        if llm is not None or not use_ai:
+            return ProcessingService(db.session, settings, llm).run(max_summaries=max_summaries)
+        with llm_client(settings) as client:
+            return ProcessingService(db.session, settings, client).run(max_summaries=max_summaries)
+
+
+def run_pipeline_once(settings: Settings, trigger: RunTrigger) -> None:
+    """One worker tick: sync sources, ingest, then process. Processing runs even if ingestion
+    was skipped or failed, so a publisher outage never blocks summaries of stored articles."""
     sync_sources(db.session)
-    return run_ingestion_once(settings, trigger=trigger)
+    try:
+        run_ingestion_once(settings, trigger=trigger)
+    except Exception:
+        logger.exception("Ingestion failed; continuing to processing")
+        db.session.rollback()
+    run_processing_once(settings)

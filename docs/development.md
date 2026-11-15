@@ -20,6 +20,18 @@
 | `FEED_MAX_ENTRIES`      | worker   | `100`                                                          | Entries processed per feed per run |
 | `DEDUP_LOOKBACK_HOURS`  | worker   | `72`                                                           | Window for headline-similarity checks |
 | `POSTGRES_USER/PASSWORD/DB` | compose | `briefly`                                                  | Required for the prod compose file |
+| `GEMINI_API_KEY`        | worker   | empty                                                          | Empty disables summarization (everything else still works) |
+| `GEMINI_MODEL`          | worker   | `gemini-3.5-flash-lite`                                        | Any Interactions-API model id |
+| `GEMINI_API_BASE_URL` / `GEMINI_API_REVISION` | worker | `…/v1beta` / `2026-05-20`               | |
+| `LLM_REQUESTS_PER_MINUTE` | worker | `10`                                                           | Client-side throttle |
+| `LLM_MAX_SUMMARIES_PER_RUN` | worker | `40`                                                         | Per-tick budget |
+| `LLM_TIMEOUT_SECONDS` / `LLM_MAX_RETRIES` | worker | `45` / `2`                                  | |
+| `LLM_MAX_OUTPUT_TOKENS` / `LLM_MAX_INPUT_CHARS` | worker | `1024` / `12000`                      | Article text beyond this is truncated |
+| `SUMMARY_MAX_ATTEMPTS`  | worker   | `3`                                                            | Then the summary stays `failed` |
+| `LLM_INPUT_COST_PER_MILLION` / `LLM_OUTPUT_COST_PER_MILLION` | worker | `0.30` / `2.50`   | For estimates only |
+| `RANKING_WEIGHT_*`      | worker   | `0.35/0.30/0.20/0.15`                                          | impact/significance/credibility/recency; must sum to 1 |
+| `RANKING_RECENCY_HALF_LIFE_HOURS` | worker | `12`                                                   | |
+| `RANKING_REFRESH_WINDOW_HOURS` | worker | `72`                                                      | Articles re-ranked each tick |
 | `VITE_API_PROXY_TARGET` | frontend | `http://localhost:8000`                                        | Dev server `/api` proxy target |
 | `VITE_API_BASE_URL`     | frontend | empty (same origin)                                            | Only set if the API is on another origin |
 | `WEB_PORT`              | prod compose | `80`                                                       | |
@@ -41,7 +53,21 @@ flask --app app.wsgi ingest run --source cnbc --source techcrunch
 flask --app app.wsgi ingest worker           # every INGESTION_INTERVAL_MINUTES until SIGTERM
 ```
 
-In Docker the `worker` service runs `ingest worker` and syncs sources on every tick.
+In Docker the `worker` service runs `ingest worker`. Each tick syncs sources, ingests, then
+processes.
+
+## Processing and AI commands
+
+```bash
+flask --app app.wsgi process run                 # categorize, rank, summarize pending articles
+flask --app app.wsgi process run --no-ai         # categorize + rank only
+flask --app app.wsgi process run --limit 5       # cap summaries this run
+flask --app app.wsgi summaries regenerate <article-uuid>
+flask --app app.wsgi ai usage --days 7           # calls, tokens, estimated cost
+```
+
+`.env` is read from the repo root (and `backend/.env` overrides it), so the same file works for
+Docker Compose and for running from `backend/`. Tests always run with no API key.
 To disable a source without a deploy, run `UPDATE sources SET is_active = false WHERE slug = '…'`.
 Syncs keep that setting.
 

@@ -72,8 +72,9 @@ Internal exception details are logged server-side and never returned to clients.
 | Table            | Purpose |
 | ---------------- | ------- |
 | `sources`        | One row per publisher integration: feed URL, default category, credibility weight (0–1), `is_active`, fetch tracking (`last_fetched_at`, `last_successful_fetch_at`, `last_fetch_status`, `last_fetch_error`, `consecutive_failures`) and HTTP validators (`http_etag`, `http_last_modified`). |
-| `articles`       | Normalized articles. `normalized_url` is unique. Also holds `guid`, `content_hash`, `content_availability`, `published_at` (null when the feed's date is missing/untrustworthy), `category`/`importance_score` (set in Milestone 3), `processing_status`, `story_cluster_id`, and `extra` JSONB (e.g. `date_issue`). |
-| `summaries`      | One current AI summary per article (`article_id` unique). Regeneration replaces it. |
+| `articles`       | Normalized articles. `normalized_url` is unique. Also holds `guid`, `content_hash`, `content_availability`, `published_at` (null when the feed's date is missing/untrustworthy), `category` + `category_source`, `impact_score`/`significance_score` (from the model), `importance_score` (computed), `processing_status`, `story_cluster_id`, and `extra` JSONB (e.g. `date_issue`). |
+| `summaries`      | One current AI summary per article (`article_id` unique): bullets, why it matters, entities, `source_coverage`, `limitations`, model, prompt version, attempts. Regeneration updates it in place. |
+| `ai_usage_events`| One row per LLM call: tokens, latency, status, estimated cost. |
 | `story_clusters` | Groups separate articles from different publishers about the same event. |
 | `ingestion_runs` | Metrics for every run: trigger, status, timings, counts, per-source breakdown JSONB. |
 
@@ -124,6 +125,70 @@ is worse than missing a duplicate. The level-5b thresholds were tuned on real he
 all six feeds and found 4 correct pairs and no false positives in ~100 articles. Headline overlap
 is still weak evidence, and robust event clustering (embeddings or LLM-extracted entities) is
 planned as a future enhancement.
+
+## Processing and AI summarization
+
+Runs after ingestion on every worker tick (`flask process run` runs it alone). It has its own
+advisory lock, separate from ingestion, so two processing runs can never double-spend API calls.
+
+```
+categorize (rules)  →  rank  →  summarize (Gemini, budgeted, most important first)  →  re-rank
+```
+
+1. **Categorize:** every uncategorized article gets a keyword-based category, falling back to
+   the source default. It is free and deterministic, so categories exist even without AI. A
+   validated AI category replaces it later (`category_source`: `rules` → `ai`).
+2. **Rank:** `importance = 0.35·impact + 0.30·significance + 0.20·credibility + 0.15·recency`.
+   Each component is 1–10 and the weights are configurable (they must sum to 1). The model
+   assesses impact and significance. Unassessed articles use a neutral-low 4. Credibility is the
+   source weight. Recency halves every 12 h. All articles from the last 72 h are re-ranked every
+   tick so scores track age. Coverage volume is deliberately not an input.
+   - *Deviation from the brief:* the brief has the model return `importance_score` directly.
+     The model can't know source credibility weights, and recency changes after generation,
+     so it returns the two judgement components and Briefly computes the final score.
+3. **Summarize:** see the policy below. Summaries are generated once, stored, and reused.
+   Requests never trigger generation.
+
+### Thin-content policy (never summarize from a headline alone)
+
+| Feed provided | Model call? | Output | `source_coverage` |
+| ------------- | ----------- | ------ | ----------------- |
+| Headline only, or <100 chars of text | **No** | status `insufficient_content` + limitation note | — |
+| Publisher excerpt only (CNBC, TechCrunch, Bloomberg) | Yes | **1–3** takeaways, limitation noted | `excerpt` |
+| Article body text (MIT TR, The Verge, Ars) | Yes | **3–5** takeaways | `article_text` |
+
+*Deviation from the brief:* "3–5 bullet points" applies to full-text articles. Forcing five
+points out of a 150-character teaser would mean inventing facts, which the brief forbids.
+The model can also decline (`insufficient_information`), and that is stored as
+`insufficient_content`.
+
+### Reliability and cost controls
+
+- **Provider:** Gemini REST Interactions API over httpx (`app/services/llm/gemini.py`), behind a
+  provider-neutral `LLMClient` protocol. The SDK was not used because it adds about 10
+  transitive dependencies. Requests send `store: false`.
+- **Structured output:** a JSON schema is sent with each request, and every reply is re-validated
+  with Pydantic (`app/schemas/summary.py`): categories, 1–10 scores, bullet counts per
+  coverage, length caps, deduplication. Invalid output gets one retry, then the attempt fails.
+  Nothing invalid is stored.
+- **Retries:** the client retries 429 (honouring `Retry-After`), 5xx, timeouts and network
+  errors with exponential backoff. 4xx configuration errors (bad key or model) are not retried.
+- **Budget and circuit breakers:** a client-side throttle (`LLM_REQUESTS_PER_MINUTE`) and at
+  most `LLM_MAX_SUMMARIES_PER_RUN` summaries per tick. The run stops calling the provider on a
+  rate limit, a configuration error, or 3 consecutive outages. Failed summaries are retried on
+  later ticks up to `SUMMARY_MAX_ATTEMPTS`, then left as failed. The article stays readable
+  with its publisher description.
+- **Usage and cost:** every call, successful or not, is a row in `ai_usage_events` (tokens,
+  thought tokens, latency, status, estimated USD at configured prices). Run `flask ai usage`.
+- **Prompt injection:** article text goes into the prompt only as a JSON object inside one
+  `<article>` block, with `<` escaped so the text can't close the block. The system
+  instruction marks it untrusted data, the model has no tools, and output must match the
+  schema.
+- **Provenance:** each summary stores `model_name`, `prompt_version`, `generated_at`,
+  `attempts` and `source_coverage`.
+- **Free-tier data use:** on Gemini's free tier, Google may use submitted content to improve
+  its products. Briefly sends only publisher feed text, never user data. Use a paid key to
+  opt out.
 
 ## News sources
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import db
 from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin, string_enum
-from app.models.enums import Category, ContentAvailability, ProcessingStatus
+from app.models.enums import Category, CategorySource, ContentAvailability, ProcessingStatus
 
 if TYPE_CHECKING:
     from app.models.source import Source
@@ -22,6 +22,14 @@ class Article(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):  # type: ignore[na
         CheckConstraint(
             "importance_score IS NULL OR (importance_score >= 1 AND importance_score <= 10)",
             name="importance_range",
+        ),
+        CheckConstraint(
+            "impact_score IS NULL OR (impact_score >= 1 AND impact_score <= 10)",
+            name="impact_range",
+        ),
+        CheckConstraint(
+            "significance_score IS NULL OR (significance_score >= 1 AND significance_score <= 10)",
+            name="significance_range",
         ),
         Index("ix_articles_source_guid", "source_id", "guid"),
         Index("ix_articles_category_published", "category", "published_at"),
@@ -49,7 +57,14 @@ class Article(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):  # type: ignore[na
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     category: Mapped[Category | None] = mapped_column(string_enum(Category, "category"))
+    category_source: Mapped[CategorySource | None] = mapped_column(
+        string_enum(CategorySource, "category_source")
+    )
     tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    # Ranking inputs assessed by the model (1-10); null until a summary succeeds.
+    impact_score: Mapped[float | None] = mapped_column(Float)
+    significance_score: Mapped[float | None] = mapped_column(Float)
+    # Weighted score (1-10), recomputed by the processing stage as articles age.
     importance_score: Mapped[float | None] = mapped_column(Float)
     content_hash: Mapped[str | None] = mapped_column(String(64), index=True)
 

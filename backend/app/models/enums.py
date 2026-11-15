@@ -65,3 +65,23 @@ class RunStatus(enum.StrEnum):
 class RunTrigger(enum.StrEnum):
     SCHEDULER = "scheduler"
     MANUAL = "manual"
+
+
+class CategorySource(enum.StrEnum):
+    RULES = "rules"  # keyword classifier + source default
+    AI = "ai"  # validated model output
+
+
+class SourceCoverage(enum.StrEnum):
+    """What the summary was based on, shown to readers alongside it."""
+
+    ARTICLE_TEXT = "article_text"  # feed carried body text
+    EXCERPT = "excerpt"  # only the publisher's short description was available
+
+
+class UsageStatus(enum.StrEnum):
+    SUCCESS = "success"
+    INVALID_OUTPUT = "invalid_output"
+    RATE_LIMITED = "rate_limited"
+    TIMEOUT = "timeout"
+    ERROR = "error"

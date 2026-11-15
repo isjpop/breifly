@@ -37,13 +37,9 @@ def make_source(d: SourceDefinition, **overrides: Any) -> Source:
 
 
 def make_article(source: Source, title: str, url: str, **overrides: Any) -> Article:
+    overrides.setdefault("content_availability", ContentAvailability.DESCRIPTION_ONLY)
     article = Article(
-        source_id=source.id,
-        title=title,
-        url=url,
-        normalized_url=normalize_url(url),
-        content_availability=ContentAvailability.DESCRIPTION_ONLY,
-        **overrides,
+        source_id=source.id, title=title, url=url, normalized_url=normalize_url(url), **overrides
     )
     db.session.add(article)
     db.session.commit()
