@@ -6,17 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Briefly — AI-summarized news across finance, technology, business and science." />
     <title>Briefly</title>
-    <script>
-      // Apply the saved/system theme before first paint to avoid a light→dark flash.
-      (function () {
-        var theme = null;
-        try { theme = localStorage.getItem('briefly-theme'); } catch (e) {}
-        if (theme !== 'light' && theme !== 'dark') {
-          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        if (theme === 'dark') document.documentElement.classList.add('dark');
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

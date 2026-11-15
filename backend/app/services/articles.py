@@ -132,18 +132,34 @@ def _one_per_story(articles: Sequence[Article], limit: int) -> list[Article]:
 
 
 def _ranked_since(
-    session: DbSession, since: datetime, limit: int, category: Category | None = None
+    session: DbSession,
+    since: datetime,
+    limit: int,
+    category: Category | None = None,
+    *,
+    assessed_first: bool = False,
 ) -> list[Article]:
+    """Articles since ``since`` by importance.
+
+    ``assessed_first`` puts articles the model has scored ahead of unscored ones. Used for top
+    stories: an article that cannot be assessed (e.g. a teaser-only listicle) sits at a neutral
+    default score and would otherwise reach the top slots on freshness alone.
+    """
     query = select(Article).where(effective_time() >= since)
     if category:
         query = query.where(Article.category == category)
-    query = _with_relations(query.order_by(*_by_importance())).limit(limit)
+    order = _by_importance()
+    if assessed_first:
+        order = (Article.impact_score.is_(None).asc(), *order)
+    query = _with_relations(query.order_by(*order)).limit(limit)
     return list(session.scalars(query).unique())
 
 
 def top_articles(session: DbSession, params: TopParams) -> list[ArticleCard]:
     since = utcnow() - timedelta(hours=params.hours)
-    candidates = _ranked_since(session, since, params.limit * CLUSTER_SCAN_MULTIPLIER)
+    candidates = _ranked_since(
+        session, since, params.limit * CLUSTER_SCAN_MULTIPLIER, assessed_first=True
+    )
     return _cards(session, _one_per_story(candidates, params.limit))
 
 
@@ -243,7 +259,9 @@ def todays_briefing(
         hours = fallback_window_hours
         since = now - timedelta(hours=hours)
 
-    ranked = _ranked_since(session, since, BRIEFING_TOP_STORIES * CLUSTER_SCAN_MULTIPLIER)
+    ranked = _ranked_since(
+        session, since, BRIEFING_TOP_STORIES * CLUSTER_SCAN_MULTIPLIER, assessed_first=True
+    )
     top = _one_per_story(ranked, BRIEFING_TOP_STORIES)
     shown_ids = {a.id for a in top}
     shown_clusters = {a.story_cluster_id for a in top if a.story_cluster_id}

@@ -82,6 +82,35 @@ jobs:
         run: |
           docker compose up -d --build --wait db backend
           curl --fail --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8000/api/health
-          docker compose run --rm -e RUN_MIGRATIONS=false backend flask --app app.wsgi sources sync
-      - if: always()
+          docker compose exec -T backend flask --app app.wsgi sources sync
+          # Categorize/rank with no feeds and no AI key: the API must still serve a briefing.
+          docker compose exec -T backend flask --app app.wsgi process run --no-ai
+          curl --fail -s http://localhost:8000/api/briefing/today | grep -q '"top_stories"'
+          curl --fail -s http://localhost:8000/api/openapi.json | grep -q '"openapi"'
+      - name: Dev stack logs and teardown
+        if: always()
         run: docker compose logs backend && docker compose down -v
+
+      - name: Smoke test production stack
+        run: |
+          printf 'POSTGRES_USER=ci\nPOSTGRES_PASSWORD=ci-password-not-secret\nWEB_PORT=8080\n' > .env
+          docker compose -f docker-compose.prod.yml up -d --build --wait db backend web
+          base=http://localhost:8080
+          curl --fail --retry 10 --retry-delay 2 --retry-all-errors -s $base/api/health | grep -q '"status":"ok"'
+          # SPA shell, client-side route fallback, and production security headers
+          curl --fail -sD headers.txt $base/ -o index.html
+          grep -qi "^content-security-policy: default-src 'self'; script-src 'self'" headers.txt
+          grep -qi '^x-content-type-options: nosniff' headers.txt
+          curl --fail -s $base/category/breaking-news | grep -q '<title>Briefly</title>'
+          # Hashed assets are long-cached AND keep the security headers (nginx add_header pitfall)
+          asset=$(grep -o '/assets/index-[^"]*\.js' index.html | head -1)
+          curl --fail -sI $base$asset | tee asset-headers.txt
+          grep -qi '^cache-control: max-age=31536000' asset-headers.txt
+          grep -qi '^x-content-type-options: nosniff' asset-headers.txt
+          curl --fail -s $base/theme-init.js | grep -q "briefly-theme"
+          # The API is reachable through the proxy and the admin endpoint fails closed
+          curl --fail -s $base/api/briefing/today | grep -q '"top_stories"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST $base/api/articles/00000000-0000-0000-0000-000000000000/summarize)" = 403
+      - name: Production stack logs and teardown
+        if: always()
+        run: docker compose -f docker-compose.prod.yml logs backend web && docker compose -f docker-compose.prod.yml down -v

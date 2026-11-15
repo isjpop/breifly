@@ -16,6 +16,10 @@ from app import create_app
 from app.config import Settings
 from app.database import db
 
+# Tests must not depend on a developer's .env (a typo there, or APP_ENV=production, would
+# change test behavior). Settings come only from explicit arguments and real env variables.
+Settings.model_config["env_file"] = None
+
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://briefly:briefly@localhost:5432/briefly_test"
 )
@@ -39,6 +43,9 @@ def app(settings: Settings) -> Iterator[Flask]:
         db.drop_all()
         with db.engine.begin() as conn:
             conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        # Each test builds a fresh app (and connection pool); release it so pools do not
+        # accumulate across the suite and exhaust the server's connection limit.
+        db.engine.dispose()
 
 
 @pytest.fixture

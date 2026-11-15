@@ -213,3 +213,28 @@ def test_database_failure_returns_503_without_internals(
     body = response.get_json()
     assert body["error"]["code"] == "database_unavailable"
     assert "secret_table" not in response.get_data(as_text=True)
+
+
+def test_top_stories_prefer_ai_assessed_articles(client: FlaskClient, data: Seed) -> None:
+    """An unassessable article (e.g. a teaser-only listicle) must not take a top slot from an
+    assessed one on freshness alone, but still appears when slots remain."""
+    from app.database import db
+
+    data.chip.impact_score = 7.0  # assessed, importance 6.5
+    data.chip.significance_score = 6.0
+    db.session.commit()  # fed (importance 9.1) remains unassessed
+
+    top = titles(get(client, "/api/articles/top"))
+    assert top[0] == data.chip.title
+    assert data.fed.title in top[1:]
+
+    briefing = get(client, "/api/briefing/today")["data"]
+    assert briefing["top_stories"][0]["title"] == data.chip.title
+
+
+def test_category_feeds_keep_plain_importance_order(client: FlaskClient, data: Seed) -> None:
+    from app.database import db
+
+    data.chip.impact_score = 7.0
+    db.session.commit()
+    assert titles(get(client, "/api/articles?category=technology"))[0] == data.fed_tech.title

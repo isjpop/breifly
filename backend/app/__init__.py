@@ -7,6 +7,7 @@ from flask import Flask
 from app.config import Settings, get_settings
 from app.database import db, migrate
 from app.utils.errors import register_error_handlers
+from app.utils.security import register_security_headers
 
 
 def create_app(settings: Settings | None = None) -> Flask:
@@ -29,6 +30,8 @@ def create_app(settings: Settings | None = None) -> Flask:
             "connect_args": {"options": "-c timezone=UTC"},
         },
         JSON_SORT_KEYS=False,
+        # No endpoint accepts a request body; cap it so oversized uploads are rejected early.
+        MAX_CONTENT_LENGTH=16 * 1024,
         BRIEFLY_SETTINGS=settings,
     )
 
@@ -45,6 +48,7 @@ def create_app(settings: Settings | None = None) -> Flask:
     for blueprint in (health_bp, articles_bp, catalog_bp, docs_bp):
         app.register_blueprint(blueprint)
     register_error_handlers(app)
+    register_security_headers(app)
 
     from app.cli import register_cli
 

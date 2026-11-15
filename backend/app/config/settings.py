@@ -9,6 +9,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+MIN_ADMIN_TOKEN_LENGTH = 24
+
 
 class Settings(BaseSettings):
     # The repo-root .env (shared with Docker Compose) is read when running from backend/;
@@ -86,6 +88,22 @@ class Settings(BaseSettings):
         )
         if abs(total - 1.0) > 1e-6:
             raise ValueError(f"ranking weights must sum to 1.0 (got {total:.3f})")
+        return self
+
+    @model_validator(mode="after")
+    def production_safety(self) -> "Settings":
+        """Fail fast on configurations that are unsafe in production rather than starting up
+        with them."""
+        if self.app_env != "production":
+            return self
+        if "localhost" in self.database_url or "briefly:briefly@" in self.database_url:
+            raise ValueError("DATABASE_URL must be set to a non-default database in production")
+        token = self.admin_api_token.get_secret_value() if self.admin_api_token else ""
+        if token and len(token) < MIN_ADMIN_TOKEN_LENGTH:
+            raise ValueError(
+                f"ADMIN_API_TOKEN must be at least {MIN_ADMIN_TOKEN_LENGTH} characters "
+                "in production"
+            )
         return self
 
     @property

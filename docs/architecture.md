@@ -80,6 +80,12 @@ See [api.md](api.md) for endpoints. Design notes:
   actually uses the index.
 - **Story-level de-duplication:** top stories and the briefing show one article per story
   cluster. The others are counted in `related_count` and listed on the detail page.
+- **Security headers:** every API response carries `nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer` and `Content-Security-Policy: default-src 'none'`. Request
+  bodies over 16 KB are rejected before routing. In production, startup refuses a default
+  database URL or an admin token under 24 characters.
+- **Top stories:** AI-assessed articles rank first in top-story slots, so a teaser that can
+  never be assessed (it stays on the neutral default score) can't take a top slot on freshness alone.
 - **Admin endpoint:** fail-closed bearer auth, rate limits stored in the database (so they work
   with several gunicorn workers), a per-article advisory lock, and one bounded provider call.
 - **Time:** database sessions are pinned to UTC, so date filters and timestamps never depend on
@@ -247,6 +253,9 @@ types/       api.ts: mirrors backend response models
 - **Design tokens:** colors are semantic CSS variables (`canvas`, `surface`, `ink`, `muted`,
   `line`, `accent`) switched by a `.dark` class. The theme is applied before first paint from
   the saved choice or the OS preference.
+- **Content Security Policy:** in production nginx sends `script-src 'self'` with no inline
+  scripts. The pre-paint theme script is a static file (`public/theme-init.js`). `vite preview`
+  reads its headers from `nginx.conf`, so local preview runs under the production policy.
 - **Accessibility:** a skip link, landmark regions labelled by their headings,
   `aria-current` navigation, radio-group sort controls, labelled inputs, visible focus rings,
   and an importance meter exposed as "Importance 7.6 out of 10".

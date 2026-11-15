@@ -62,10 +62,25 @@
       with real data), skeleton/empty/error states, accessibility basics
 - [x] 51 frontend tests (95% coverage, thresholds enforced in CI)
 
-## Milestone 6: End-to-end and hardening
-- [ ] Full pipeline verification, coverage review, Docker/CI verification, docs pass
+## Milestone 6: End-to-end and hardening ✅
+- [x] Live end-to-end run on an empty database through the real worker: 6/6 sources,
+      95 articles, AI summaries, API, and the dashboard via the proxy
+- [x] CI verified Docker images and the dev stack (Phases 1–4 green). Added a production-stack
+      smoke test: nginx, SPA routes, API proxy, CSP, asset headers, admin endpoint fails closed
+- [x] Ranking fix: top stories prefer AI-assessed articles (a teaser-only listicle had
+      reached the top slots on freshness alone)
+- [x] Hardening: strict CSP (theme script moved out of `index.html`), fixed nginx dropping security
+      headers on assets, API security headers, 16 KB request cap, production config refuses
+      a default DB URL or a short admin token
+- [x] Test harness fixes: isolated from developer `.env`; per-test connection pools disposed
+- [x] [Acceptance audit](acceptance.md) and documentation pass
 
 ## Known limitations / backlog
+- The production-stack CI smoke test runs for the first time on the next push.
+- No retention policy yet: articles accumulate (~100/day). Add pruning or archiving before
+  long-running deployments.
+- The AI category replaces the rule-based one only after a summary. On the free tier the
+  backlog clears at up to 40 summaries per 15-minute tick.
 - Rule-based categories lean toward Technology (56 of 97 live articles) until AI summaries
   replace them. The worker gets through the backlog at up to 40 summaries per tick.
 - The API has no read-side rate limiting or caching yet. Add both at the reverse proxy if it
@@ -78,3 +93,12 @@
   to embedding- or entity-based clustering (future enhancement 1).
 - Reuters and AP require commercial licences before they can be integrated.
 - CNBC sends no HTTP validators, so it is fully downloaded every run (~20 KB).
+
+## Future enhancements (designed for, not built)
+1. **Cross-source story aggregation:** `story_clusters` already groups coverage. Next steps are
+   embedding- or entity-based clustering and one consolidated multi-source summary per cluster.
+2. User accounts, saved articles and personalized feeds (schema leaves room for `users` and
+   `bookmarks`).
+3. Daily email briefing (the briefing endpoint already produces the content).
+4. Read-side caching and rate limiting at the reverse proxy for public deployment.
+5. Reuters and AP once licensed API credentials exist (`SourceType.API` integration).

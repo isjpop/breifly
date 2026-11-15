@@ -70,6 +70,15 @@ describe('ArticleCard', () => {
     expect(screen.getByText('Teaser only')).toBeInTheDocument()
   })
 
+  it('adds “why it matters” to the lead story only', () => {
+    const article = makeArticle()
+    const { unmount } = renderCard(article, 'standard')
+    expect(screen.queryByText(/Why it matters/)).not.toBeInTheDocument()
+    unmount()
+    renderCard(article, 'lead')
+    expect(screen.getByText('It matters because of reasons.')).toBeInTheDocument()
+  })
+
   it('shows related coverage and only renders the image on the lead variant', () => {
     const article = makeArticle({ related_count: 2, image_url: 'https://cdn.example.com/a.jpg' })
     const { container, unmount } = renderCard(article, 'standard')

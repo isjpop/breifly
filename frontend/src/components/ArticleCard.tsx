@@ -58,6 +58,13 @@ export function ArticleCard({ article, variant = 'standard', showCategory = true
         compact={variant === 'compact'}
       />
 
+      {variant === 'lead' && article.summary?.status === 'succeeded' && article.summary.why_it_matters && (
+        <p className="border-l-2 border-accent pl-3 text-sm leading-snug text-ink/85">
+          <span className="font-semibold text-accent">Why it matters: </span>
+          {article.summary.why_it_matters}
+        </p>
+      )}
+
       {/* Grid cards pin the footer to the bottom so footers align across a row; the lead card
           sits beside a taller column, so its footer follows the content directly. */}
       <div
